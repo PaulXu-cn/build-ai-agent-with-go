@@ -1,13 +1,12 @@
 // openai Chat Completions。
 //
-// 它是 openai 早期定的 api 标准，目前 openai 不推荐使用，
-// 但 Chat Completions 的请求/响应格式已事实标准，被其他厂商照着实现——
-// DeepSeek、Qwen（通义千问）、Kimi、智谱 GLM、Ollama…… 全是这一套。
+// openai 早期定的 api 标准，现在已经不推荐使用，
+// 但格式已事实标准——DeepSeek、Qwen、Kimi、智谱 GLM、Ollama 全是这一套。
 //
 // 三种方言的主要差异在请求体形状：
 //   Chat Completions：messages[].content 是【字符串】
-//   Responses：没有 messages，叫 input（见 openai_responses.go）
-//   Anthropic：messages[].content 是【块数组】，system 单独放顶层（见 anthropic.go）
+//   Responses：没有 messages，叫 input
+//   Anthropic：messages[].content 是【块数组】，system 单独放顶层
 
 package main
 
@@ -19,18 +18,18 @@ import (
 // ---- 请求体 ----
 
 type ChatCompletionReq struct {
-	// Model 模型，deepseek-chat / qwen-plus / gpt-4o-mini …
+	// Model 模型
 	Model string `json:"model"`
-	// Messages 对话历史。API 无状态：每轮都要把整个上下文全量重发。
+	// Messages 对话历史，API 无状态，每轮全量重发
 	Messages []ChatCompletionMsg `json:"messages"`
 	// Stream 是否流式，本章统一 false
 	Stream bool `json:"stream"`
 }
 
 type ChatCompletionMsg struct {
-	// 角色：system / user / assistant
+	// Role 角色：system / user / assistant
 	Role string `json:"role"`
-	// 消息内容
+	// Content 消息内容
 	Content string `json:"content"`
 }
 
@@ -41,11 +40,34 @@ type ChatCompletionResp struct {
 		Message      ChatCompletionMsg `json:"message"`
 		FinishReason string            `json:"finish_reason"` // stop=正常结束；length=超长被截断
 	} `json:"choices"`
-	Usage struct {
-		PromptTokens     int `json:"prompt_tokens"`
-		CompletionTokens int `json:"completion_tokens"`
-		TotalTokens      int `json:"total_tokens"`
-	} `json:"usage"`
+	Usage ChatCompletionUsage `json:"usage"`
+}
+
+// ChatCompletionUsage token 用量。
+//
+// 缓存字段有两套写法，都要读：openai 是嵌套的 prompt_tokens_details.cached_tokens，
+// DeepSeek 明明兼容 openai，却把缓存字段放在顶层自己命名。
+// 这也是「事实标准」和「真的标准」的差别——兼容不等于一模一样。
+type ChatCompletionUsage struct {
+	PromptTokens     int `json:"prompt_tokens"`
+	CompletionTokens int `json:"completion_tokens"`
+	TotalTokens      int `json:"total_tokens"`
+
+	PromptTokensDetails struct {
+		CachedTokens int `json:"cached_tokens"`
+	} `json:"prompt_tokens_details"`
+
+	// prompt_tokens == prompt_cache_hit_tokens + prompt_cache_miss_tokens
+	PromptCacheHitTokens  int `json:"prompt_cache_hit_tokens"`
+	PromptCacheMissTokens int `json:"prompt_cache_miss_tokens"`
+}
+
+// cachedTokens 命中缓存的输入 token。两家字段名不一样，谁有值用谁。
+func (u ChatCompletionUsage) cachedTokens() int {
+	if u.PromptTokensDetails.CachedTokens > 0 {
+		return u.PromptTokensDetails.CachedTokens
+	}
+	return u.PromptCacheHitTokens
 }
 
 func chatCompletion(apiKey, baseURL, model, prompt string) (string, error) {
@@ -73,5 +95,7 @@ func chatCompletion(apiKey, baseURL, model, prompt string) (string, error) {
 	if len(resp.Choices) == 0 {
 		return "", fmt.Errorf("响应里没有 choices")
 	}
+
+	printUsage(resp.Usage.PromptTokens, resp.Usage.cachedTokens(), resp.Usage.CompletionTokens)
 	return resp.Choices[0].Message.Content, nil
 }

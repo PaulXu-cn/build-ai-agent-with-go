@@ -41,7 +41,7 @@ PROVIDER=deepseek API_KEY=sk-... MODEL=deepseek-reasoner PROMPT="写一首诗" g
 
 ## 输出
 
-打印三段：请求体 JSON、响应体 JSON、模型回复文本。
+打印四段：请求体 JSON、响应体 JSON、token 用量、模型回复文本。
 
 ## 环境变量
 

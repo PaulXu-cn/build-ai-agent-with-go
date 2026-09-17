@@ -6,9 +6,6 @@
 // 流式与非流式的差异只有两处：
 //   请求：stream 改成 true
 //   响应：不是一整块 JSON，而是一串小 JSON；读法从 io.ReadAll 变成逐行读
-//
-// 三种方言的差异依旧在端点、鉴权、事件形状；前两者与非流式相同，
-// 事件形状的差异见各自文件。
 
 package main
 
@@ -19,10 +16,10 @@ import (
 
 const defaultPrompt = "用一句话说明什么是 AI Agent。"
 
-// chatFunc 是所有方言流式函数的统一签名。文本由各自函数边收边打印，所以不返回内容。
+// chatFunc 流式输出 call back 函数。
 type chatFunc func(apiKey, baseURL, model, prompt string) error
 
-// providerConf 一家厂商的默认端点和模型，以及用哪种方言发送。
+// providerConf 各厂商的默认端点和模型，以及用哪种方言发送。
 type providerConf struct {
 	baseURL string
 	model   string
@@ -52,7 +49,10 @@ func main() {
 		os.Exit(1)
 	}
 
+	// 先打标题，回答会在它下面一行行流出来
 	fmt.Println("===== 模型回复 =====")
+	fmt.Println()
+
 	err := conf.chat(
 		apiKey,
 		envOr("BASE_URL", conf.baseURL),

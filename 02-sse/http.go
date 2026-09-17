@@ -39,8 +39,7 @@ func streamSSE(url string, headers map[string]string, body any, onData func(data
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	// 流式【不能】设 http.Client.Timeout：它管的是「发请求 + 读完 body」的总时长，
-	// 回答一长就会被拦腰砍断。流式什么时候结束，由服务端的结束标志决定。
+	// 流式【不能】设 http.Client.Timeout：否则回答时间长了，就会因超时截断。流式请求的结束，由服务端决定。
 	client := &http.Client{}
 
 	resp, err := client.Do(req)
@@ -82,4 +81,15 @@ func streamSSE(url string, headers map[string]string, body any, onData func(data
 		}
 	}
 	return scanner.Err()
+}
+
+// printUsage 打印 token 用量。
+// 三种方言字段名不一样，这里统一成一行；cached 是命中缓存的输入 token，没有就传 0。
+// 前面刚流过一坨没有换行的回答，所以这里先补一个换行。
+func printUsage(in, cached, out int) {
+	if cached > 0 {
+		fmt.Printf("\ntoken 用量: 输入 %d（缓存命中 %d），输出 %d，合计 %d\n", in, cached, out, in+out)
+		return
+	}
+	fmt.Printf("\ntoken 用量: 输入 %d，输出 %d，合计 %d\n", in, out, in+out)
 }

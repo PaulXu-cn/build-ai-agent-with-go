@@ -9,10 +9,10 @@ import (
 
 const defaultPrompt = "一句话说明什么是 AI Agent。"
 
-// chatFunc 是所有方言发送函数的统一签名。
+// chatFunc 非流式调用函数。
 type chatFunc func(apiKey, baseURL, model, prompt string) (string, error)
 
-// providerConf 一家厂商的默认端点和模型，以及用哪种方言发送。
+// providerConf 各厂商的默认端点和模型，以及用哪种方言发送。
 type providerConf struct {
 	baseURL string
 	model   string
@@ -20,7 +20,7 @@ type providerConf struct {
 }
 
 // providers 方言注册表
-// 注意 deepseek / qwen / openai 三行都是 chatCompletion —— 它们是同一种方言。
+// deepseek / qwen / openai 三行都是 chatCompletion —— 它们是同一种方言。
 var providers = map[string]providerConf{
 	"deepseek":  {"https://api.deepseek.com", "deepseek-chat", chatCompletion},
 	"qwen":      {"https://dashscope.aliyuncs.com/compatible-mode", "qwen-plus", chatCompletion},

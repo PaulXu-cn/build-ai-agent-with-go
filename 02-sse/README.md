@@ -67,7 +67,7 @@ PROVIDER=deepseek API_KEY=sk-... PROMPT="用三句话解释 AI Agent" go run .
 
 ## 输出
 
-三段：请求体 JSON、响应的 `Content-Type`（流式应为 `text/event-stream`）、逐段打印的回答。
+四段：请求体 JSON、响应的 `Content-Type`（流式应为 `text/event-stream`）、逐段打印的回答、token 用量。
 
 ## 环境变量
 

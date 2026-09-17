@@ -8,21 +8,42 @@
 
 ```
 03-cmd/
-├── main.go     组装：建 Client，交给 Console 跑（几行代码）
+├── main.go     组装：建 Client，交给 App 跑（几行代码）
 ├── llm/        和模型说话：HTTP + 协议。不知道终端长什么样
-└── console/    和用户说话：读输入 + 打印。不知道 HTTP 长什么样
+└── cmd/        和用户说话：读输入 + 打印。不知道 HTTP 长什么样
 ```
 
-两边靠一个接口对接。接口定义在**使用方**（console）而不是实现方，这是 Go 的惯例：
+两边靠一个接口对接。接口定义在**使用方**（cmd）而不是实现方，这是 Go 的惯例：
 
 ```go
-// console/console.go
+// cmd/cmd.go
 type Streamer interface {
 	Stream(ctx context.Context, messages []llm.Message, onDelta func(string)) error
 }
 ```
 
 `*llm.Client` 天然满足它，所以两个包不用互相 import，`main.go` 里直接传进去就行。
+
+接口上有个细节：`Stream` 除了回调，还会**返回** token 用量。
+
+```go
+usage, err := c.streamer.Stream(ctx, messages, func(delta string) { fmt.Print(delta) })
+```
+
+为什么不干脆让 `llm` 包自己 `fmt.Print`：那就等于让模型包往终端写东西，
+「llm 不知道终端长什么样」这句话就破了。要显示什么、怎么显示，是 `cmd` 包的事。
+
+用量本身三种方言算法不同，`llm` 包负责把它们统一成 `Usage{Input, Cached, Output}`：
+
+| 方言 | 输入总量 | 命中缓存 |
+|---|---|---|
+| Chat Completions | `prompt_tokens` | `cached_tokens`，DeepSeek 则是 `prompt_cache_hit_tokens` |
+| Responses | `input_tokens` | `input_tokens_details.cached_tokens` |
+| Messages | `input_tokens + cache_creation + cache_read` | `cache_read_input_tokens` |
+
+流式下还有个坑：Chat Completions **默认不返回用量**，要在请求里加
+`stream_options: {"include_usage": true}`；开启后 `[DONE]` 之前会多一片
+`choices` 为空数组的分片，用量在里面——**先判断 `choices` 就会把它丢掉**。
 
 ## 交互
 
